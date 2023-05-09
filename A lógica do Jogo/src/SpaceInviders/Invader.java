@@ -1,16 +1,32 @@
 package SpaceInviders;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.io.File;
+
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 
 import Base.Elemento;
 
 public class Invader extends Elemento {
+	
+	private Clip destroyedSFX;
+
 	enum  Tipos{
 		PEQUENO, MEDIO, GRANDE, CHEFE
 	}
 	private Tipos tipo;
 	private boolean aberto;
 	public Invader(Tipos tipo) {
+		try {
+			File file = new File(".//src//SpaceInviders//assets//invaderkilled.wav");
+			AudioInputStream sound = AudioSystem.getAudioInputStream(file);
+			destroyedSFX = AudioSystem.getClip();
+			destroyedSFX.open(sound);
+		} catch (Exception e){
+			System.out.println(e);
+		}
 		this.tipo = tipo;
 		
 		setLargura(20);
@@ -31,6 +47,11 @@ public class Invader extends Elemento {
 		default:
 			return 1000;
 		}
+	}
+	
+	public void playDestroyed() {
+		destroyedSFX.setFramePosition(0);
+		destroyedSFX.start();
 	}
 	
 	@Override
