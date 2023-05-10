@@ -194,6 +194,8 @@ public class Jogo extends JFrame{
 			Thread.sleep(1000 * 3);
 			vidas --;
 			chefe.setAtivo(false);
+			tiroTanque.setAtivo(false);
+			tiroChefe.setAtivo(false);
 			for(Tiro tiro: tiros) {
 				tiro.setAtivo(false);
 			}
