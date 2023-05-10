@@ -1,10 +1,13 @@
 package Base;
 
+import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
 
 public class Texto extends Elemento{
 	private Font fonte;
+	private int bgColor;
+
 
 	public Texto() {
 		fonte = new Font("Tahoma",Font.PLAIN, 16);

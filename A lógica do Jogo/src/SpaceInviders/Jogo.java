@@ -6,7 +6,10 @@ import java.awt.Graphics2D;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
+import java.io.File;
 
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -14,10 +17,14 @@ import SpaceInviders.Invader.Tipos;
 import Base.Elemento;
 import Base.Texto;
 import Base.Util;
+import Base.FPS;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class Jogo extends JFrame{
-	private final int FPS = 20;
+	private final int TIK = 20;
 	
 	private JPanel tela;
 	private boolean jogando = true;
@@ -29,13 +36,14 @@ public class Jogo extends JFrame{
 	private static final int TELA_ALTURA = 680;
 	private static final int TELA_LARGURA = 540;
 	
-	private Invader.Tipos[] tipoPorLinha = {Tipos.PEQUENO,Tipos.MEDIO,Tipos.MEDIO,Tipos.GRANDE,Tipos.GRANDE};
+	private Invader.Tipos[] tipoPorLinha = {Tipos.GRANDE,Tipos.MEDIO,Tipos.MEDIO,Tipos.PEQUENO,Tipos.PEQUENO};
 	private Invader chefe;
 	private Tiro tiroChefe;
 	private Random rand = new Random();
 	private Graphics2D g2d;
 	private BufferedImage buffer;
 	private Tanque tanque;	
+	private Clip moveSound1,moveSound2,moveSound3,moveSound4;
 	
 	private int tiroTurn = 0;
 	private int espacamento = 15;
@@ -43,17 +51,26 @@ public class Jogo extends JFrame{
 	private int contadorEspera, contador, totalInimigos, destruidos, dir;
 	private int level = 1;
 	private int vidas = 3;
-	private boolean moverInimigos,novaLinha;
+	private boolean moverInimigos;
 	private boolean colideBordas = false;
 	private Elemento tiroTanque;
 	private Tiro[] tiros = new Tiro[3];
 	private Texto texto;
+	private FPS fps = new FPS();
+	private int soundIndex = 0;
+	private Clip[] moveSounds = new Clip[] {
+		moveSound1,
+		moveSound2,
+		moveSound3,
+		moveSound4
+	};
+
 	
 	
 	private void setTecla(int key,boolean active) {
 		switch(key) {
 		case KeyEvent.VK_ESCAPE:
-			jogando = false;
+			jogando = !jogando;
 			dispose();
 			break;
 		case KeyEvent.VK_UP:
@@ -114,9 +131,21 @@ public class Jogo extends JFrame{
 	
 
 	
-
 	
 	private void carregarJogo() {
+
+		try {
+			
+			for(int i = 0 ; i < moveSounds.length ; i++ ) {
+				File move = new File(String.format(".//src//SpaceInviders//assets//fastinvader%s.wav", i+1));
+				AudioInputStream sound = AudioSystem.getAudioInputStream(move);
+				moveSounds[i] = AudioSystem.getClip();
+				moveSounds[i].open(sound);
+			}
+
+		}catch(Exception e){
+			System.out.println(e);
+		}
 		
 				
 		texto = new Texto();
@@ -155,10 +184,28 @@ public class Jogo extends JFrame{
 		totalInimigos = invasores.length * invasores[0].length;
 
 		contadorEspera = totalInimigos / level;
-		System.out.print(contadorEspera);
 	}
 	
-	
+	private void tanqueDestroyed() {
+		
+		jogando = false;
+
+		try {
+			Thread.sleep(1000 * 3);
+			vidas --;
+			chefe.setAtivo(false);
+			for(Tiro tiro: tiros) {
+				tiro.setAtivo(false);
+			}
+			tanque.setPx(tela.getWidth() / 2 - tanque.getAltura() / 2);
+			
+			jogando = true;
+			tanque.setAtivo(true);
+
+		}catch(Exception e) {
+			System.out.println(e);
+		}
+	}
 
 	public void addTiroInimigo(Elemento inimigo, Elemento tiro) {
 		tiro.setAtivo(true);
@@ -167,15 +214,30 @@ public class Jogo extends JFrame{
 		tiro.setPy(inimigo.getPy() + inimigo.getAltura());
 	}
 	
+	public void playMove() {
+
+		Clip sound = moveSounds[soundIndex];
+		sound.setFramePosition(0);
+		sound.start();
+		if(soundIndex == 3) {
+			soundIndex = 0;
+		}else {
+			soundIndex++;
+		}
+
+	}
 	
 	public void iniciaJogo() {
 		long prxAtualizacao = 0;
 		while(jogando) {
 			if(System.currentTimeMillis() >= prxAtualizacao) {
+				fps.update();
 				g2d.setColor(Color.BLACK);
 				g2d.fillRect(0, 0, TELA_LARGURA, TELA_ALTURA);
 				g2d.setColor(Color.WHITE);
 				texto.desenha(g2d,"score: " + pontos, 10,20);
+				texto.desenha(g2d,"fps:" + fps.getFPS(),TELA_LARGURA-100,20);
+ 
 				if(contador > contadorEspera) {
 					moverInimigos = true;
 					contador = 0;
@@ -185,9 +247,9 @@ public class Jogo extends JFrame{
 				}
 				
 				if(tanque.isAtivo()) {
-					if(controleTecla[2]) {
+					if(controleTecla[2] && tanque.getPx() >= 0) {
 						tanque.setPx(tanque.getPx() - tanque.getVel());
-					}else if(controleTecla[3]) {
+					}else if(controleTecla[3] && (tanque.getLargura() * 1.5) + tanque.getPx()<TELA_LARGURA) {
 						tanque.setPx(tanque.getPx() + tanque.getVel());
 					}
 				}
@@ -197,6 +259,12 @@ public class Jogo extends JFrame{
 						tiro.setAtivo(false);
 					if(tiro.isAtivo()) {
 						tiro.incPy(tiro.getVel());
+					}
+					if(Util.colide(tiro, tanque)) {
+						tanque.playDestroyed();
+						tanque.setAtivo(false);
+						tanqueDestroyed();
+						//todo adicionar morte
 					}
 				}
 				
@@ -229,15 +297,20 @@ public class Jogo extends JFrame{
 					}
 				}
 				if(tiroChefe.isAtivo()) {
-					tiroChefe.incPx(tiroChefe.getVel());
+					tiroChefe.incPy(tiroChefe.getVel());
 					if(Util.colide(tiroChefe, tanque)) {
 						vidas--;
 						tiroChefe.setAtivo(false);
+						tanque.playDestroyed();
 					}else if(tiroChefe.getPy() > tela.getHeight() - linhaBase - tiroChefe.getAltura()) {
 						tiroChefe.setAtivo(false);
 					}else {
 						tiroChefe.desenha(g2d);
 					}
+				}
+				
+				if(moverInimigos) {
+					playMove();
 				}
 
 				
@@ -258,8 +331,8 @@ public class Jogo extends JFrame{
 						}
 						if(!tiros[tiroTurn].isAtivo()) {
 							if(rand.nextInt(150) == 4) {
+								inv.playShoot();
 								addTiroInimigo(inv,tiros[tiroTurn]);
-								System.out.print(tiros[tiroTurn].getVel());
 							}
 							
 							if(tiroTurn==2) tiroTurn=0;
@@ -268,8 +341,9 @@ public class Jogo extends JFrame{
 						
 						if(moverInimigos) {
 							inv.atualiza();
-							if(novaLinha) {
-								inv.setPy(inv.getPy() + inv.getAltura() + espacamento);
+							if(inv.novaLinha) {
+								inv.incPy(inv.getAltura());
+								inv.novaLinha = false;
 							}else {
 								inv.incPx(espacamento*dir);
 							}
@@ -281,16 +355,6 @@ public class Jogo extends JFrame{
 								colideBordas = true;
 							}
 							
-							
-							
-							/*if(!tiros[0].isAtivo() && inv.getPx() < tanque.getPx()) {
-								addTiroInimigo(inv,tiros[0]);
-							} else if(!tiros[1].isAtivo() && inv.getPx() > tanque.getPx() && inv.getPx() < tanque.getPx() +  tanque.getLargura()) {
-								addTiroInimigo(inv,tiros[1]);
-							} else if(!tiros[2].isAtivo() && inv.getPx() > tanque.getPx()) {
-								addTiroInimigo(inv,tiros[2]);
-							}*/
-							
 							if(!chefe.isAtivo() && rand.nextInt(1500) == destruidos) {
 								chefe.setPx(0);
 								chefe.setAtivo(true);
@@ -299,13 +363,17 @@ public class Jogo extends JFrame{
 						}
 					}
 				}
-				novaLinha = false;
 				if(moverInimigos && colideBordas) {
 					dir *= -1;
-					novaLinha = true;
+					//novaLinha = true;
+					
+					for(int j = invasores[0].length - 1; j >= 0; j--) {
+						for(int i = 0; i < invasores.length;i++) {
+							invasores[i][j].novaLinha = true;
+						}
+					}
 					colideBordas = false;
 				}
-				
 				
 				// Desenhe aqui para as naves ficarem acima dos tiros
 				for (int i = 0; i < invasores.length; i++) {
@@ -337,7 +405,7 @@ public class Jogo extends JFrame{
 
 				tela.repaint();
 
-				prxAtualizacao = System.currentTimeMillis() + FPS;
+				prxAtualizacao = System.currentTimeMillis() + TIK;
 			}
 		}
 	}
