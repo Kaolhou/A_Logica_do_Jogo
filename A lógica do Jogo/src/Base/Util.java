@@ -28,5 +28,14 @@ public class Util {
 
 		return false;
 	}
+	public static void centraliza(Elemento el, int larg, int alt) {
+		if (alt > 0)
+			el.setPy(alt / 2 - el.getAltura() / 2);
+
+		if (larg > 0)
+			el.setPx(larg / 2 - el.getLargura() / 2);
+
+	}
+
 	
 }

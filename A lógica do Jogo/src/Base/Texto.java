@@ -13,6 +13,10 @@ public class Texto extends Elemento{
 		fonte = new Font("Tahoma",Font.PLAIN, 16);
 	}
 	
+	public Texto(String fontName) {
+		fonte = new Font(fontName,Font.PLAIN, 16);
+	}
+	
 	public void desenha(Graphics2D g, String texto) {
 		desenha(g,texto,getPx(),getPy());
 	}
